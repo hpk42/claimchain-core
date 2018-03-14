@@ -18,7 +18,9 @@ def init_state(store, name):
 def commit_state_to_chain(store, params, state, head):
     chain = Chain(store, root_hash=head)
     with params.as_default():
+        # print ("------BEGIN commit")
         head = state.commit(chain)
+        # print ("------FINISH commit", head)
     return head
 
 
