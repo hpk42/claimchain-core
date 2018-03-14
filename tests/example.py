@@ -12,11 +12,11 @@ def init_state(store, name):
 
     # Generate cryptographic keys
     params = LocalParams.generate()
-    return commit_state_to_chain(store, params, state), params
+    return commit_state_to_chain(store, params, state, head=None), params
 
 
-def commit_state_to_chain(store, params, state):
-    chain = Chain(store)
+def commit_state_to_chain(store, params, state, head):
+    chain = Chain(store, root_hash=head)
     with params.as_default():
         head = state.commit(chain)
     return head
@@ -69,10 +69,15 @@ def play_scenario1():
 
     state = State()
     add_claim(state, alice_params, claim=("bob_hair", "black"), access_pk=bob_pk)
-    alice_head = commit_state_to_chain(store, alice_params, state)
+    alice_head = commit_state_to_chain(store, alice_params, state, head=alice_head)
 
-    print ("Bob reads encrypted claim: {!r}".format(
+    add_claim(state, alice_params, claim=("bob_feet", "4"), access_pk=bob_pk)
+    alice_head = commit_state_to_chain(store, alice_params, state, head=alice_head)
+
+    print ("Bob reads encrypted claim hair: {!r}".format(
            read_claim(store, bob_params, head=alice_head, claimkey="bob_hair")))
+    print ("Bob reads encrypted claim feet: {!r}".format(
+           read_claim(store, bob_params, head=alice_head, claimkey="bob_feet")))
 
 
 if __name__ == "__main__":
