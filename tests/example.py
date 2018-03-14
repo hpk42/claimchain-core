@@ -1,10 +1,10 @@
 from __future__ import print_function
 
-from claimchain import State
 from hippiehug import Chain
-from claimchain import LocalParams
+from claimchain import State, LocalParams, View
 
 import base64
+
 
 def init_state(store, name):
     state = State()
@@ -12,21 +12,36 @@ def init_state(store, name):
 
     # Generate cryptographic keys
     params = LocalParams.generate()
+    return commit_state_to_chain(store, params, state), params
+
+
+def commit_state_to_chain(store, params, state):
     chain = Chain(store)
     with params.as_default():
         head = state.commit(chain)
-    return head, params
+    return head
+
+
+def add_claim(state, params, claim, access_pk=None):
+    key, value = claim
+    state[key] = value
+    if access_pk is not None:
+        with params.as_default():
+            state.grant_access(access_pk, [key])
+
+
+def read_claim(store, params, head, claimkey):
+    chain = Chain(store, root_hash=head)
+    with params.as_default():
+        view = View(chain)
+        return view[claimkey]
+
 
 def get_pk(store, head, params):
-    from hippiehug import Chain
-    from claimchain import View
-
     chain = Chain(store, root_hash=head)
-
     with params.as_default():
         view = View(chain)
         return view.params.dh.pk
-
 
 
 class MyStore(dict):
@@ -40,7 +55,7 @@ class MyStore(dict):
         return val
 
 
-if __name__ == "__main__":
+def play_scenario1():
     store = MyStore()
     alice_head, alice_params = init_state(store, "Alice")
     bob_head, bob_params = init_state(store, "Bob")
@@ -48,3 +63,18 @@ if __name__ == "__main__":
     print ("Bob reads Alice's PK:", get_pk(store, alice_head, bob_params))
     print ("Alice reads Bob's PK:", get_pk(store, bob_head, alice_params))
     print ("Bob reads his own PK:", get_pk(store, bob_head, bob_params))
+    alice_pk = get_pk(store, alice_head, alice_params)
+    bob_pk = get_pk(store, bob_head, alice_params)
+
+
+    state = State()
+    add_claim(state, alice_params, claim=("bob_hair", "black"), access_pk=bob_pk)
+    alice_head = commit_state_to_chain(store, alice_params, state)
+
+    print ("Bob reads encrypted claim: {!r}".format(
+           read_claim(store, bob_params, head=alice_head, claimkey="bob_hair")))
+
+
+if __name__ == "__main__":
+    play_scenario1()
+
